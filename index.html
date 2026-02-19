@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Conference - Meeting Room</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .setup-screen {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .setup-screen h1 {
+            color: #333;
+            font-size: 36px;
+            margin-bottom: 15px;
+        }
+
+        .setup-screen p {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+
+        .role-selection {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .role-card {
+            background: #f7fafc;
+            border: 3px solid #e2e8f0;
+            border-radius: 15px;
+            padding: 40px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .role-card:hover {
+            transform: translateY(-5px);
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(102,126,234,0.2);
+        }
+
+        .role-card.selected {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .role-card .icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .role-card h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .role-card p {
+            font-size: 14px;
+            margin-bottom: 0;
+        }
+
+        .join-form {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .join-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            background: #667eea;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        }
+
+        .btn-success {
+            background: #48bb78;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        /* Waiting Screen Styles */
+        .waiting-screen {
+            display: none;
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        .waiting-screen.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .waiting-screen h2 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .waiting-screen p {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .waiting-screen .cancel-btn {
+            margin-top: 20px;
+            background: #f56565;
+        }
+
+        .waiting-screen .cancel-btn:hover {
+            background: #e53e3e;
+        }
+
+        .meeting-screen {
+            display: none;
+        }
+
+        .meeting-screen.active {
+            display: block;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .meeting-info h2 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .meeting-code {
+            background: #e6f7ff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid #1890ff;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .meeting-code strong {
+            color: #667eea;
+            font-size: 20px;
+            letter-spacing: 2px;
+        }
+
+        .participant-count {
+            background: #f7fafc;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .participant-count .number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .participant-count .label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* Join Requests Panel */
+        .join-requests-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 350px;
+            max-height: 500px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .join-requests-panel.active {
+            display: block;
+        }
+
+        .join-requests-panel h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .request-badge {
+            background: #f56565;
+            color: white;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .request-item {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .request-info {
+            margin-bottom: 10px;
+        }
+
+        .request-info strong {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .request-info .timestamp {
+            color: #999;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .request-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .request-actions button {
+            flex: 1;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .request-actions .accept-btn {
+            background: #48bb78;
+            color: white;
+        }
+
+        .request-actions .accept-btn:hover {
+            background: #38a169;
+        }
+
+        .request-actions .deny-btn {
+            background: #f56565;
+            color: white;
+        }
+
+        .request-actions .deny-btn:hover {
+            background: #e53e3e;
+        }
+
+        .main-area {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .video-area {
+            background: #000;
+            border-radius: 15px;
+            min-height: 500px;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+
+        .video-container {
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .host-badge {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card {
+            background: #f7fafc;
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        .card h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .participants-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .participant-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .participant-name {
+            color: #333;
+            font-weight: 500;
+        }
+
+        /* NEW: Remove button styles */
+        .remove-btn {
+            padding: 5px 12px;
+            background: #f56565;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .remove-btn:hover {
+            background: #e53e3e;
+            transform: scale(1.05);
+        }
+
+        .chat-messages {
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .message-text {
+            color: #333;
+            font-size: 14px;
+        }
+
+        .message-time {
+            color: #999;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        .chat-input button {
+            padding: 12px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            background: #667eea;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .control-btn.danger {
+            background: #f56565;
+        }
+
+        .control-btn.danger:hover {
+            background: #e53e3e;
+        }
+
+        .control-btn.active {
+            background: #48bb78;
+        }
+
+        .whiteboard-canvas {
+            width: 100%;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            cursor: crosshair;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.active {
+            border-color: #333;
+        }
+
+        .recordings-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .recording-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .recording-item button {
+            padding: 5px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #48bb78;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            display: none;
+            z-index: 1000;
+            font-weight: 500;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .ai-section {
+            margin-top: 15px;
+        }
+
+        .summary-box {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        /* NEW: Hide recording section for students */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Setup Screen -->
+        <div id="setupScreen" class="setup-screen">
+            <h1>Meet Scribe</h1>
+            <p>Join or create a meeting with ai summarization</p>
+            
+            <div class="role-selection">
+                <div class="role-card" onclick="selectRole('teacher')">
+                    <div class="icon">👨‍🏫</div>
+                    <h3>Create</h3>
+                    <p>Host a meeting and manage participants</p>
+                </div>
+                <div class="role-card" onclick="selectRole('student')">
+                    <div class="icon">👨‍🎓</div>
+                    <h3>Participate </h3>
+                    <p>Join an existing meeting</p>
+                </div>
+            </div>
+
+            <div id="teacherForm" class="join-form">
+                <div class="form-group">
+                    <label>Your Name</label>
+                    <input type="text" id="teacherName" placeholder="Enter your name">
+                </div>
+                <button class="btn btn-success" onclick="startAsTeacher()">Start Meeting</button>
+            </div>
+
+            <div id="studentForm" class="join-form">
+                <div class="form-group">
+                    <label>Your Name</label>
+                    <input type="text" id="studentName" placeholder="Enter your name">
+                </div>
+                <div class="form-group">
+                    <label>Meeting Code</label>
+                    <input type="text" id="meetingCode" placeholder="Enter meeting code">
+                </div>
+                <button class="btn btn-success" onclick="joinAsStudent()">Request to Join</button>
+            </div>
+        </div>
+
+        <!-- Waiting Screen for Students -->
+        <div id="waitingScreen" class="waiting-screen">
+            <div class="spinner"></div>
+            <h2>Waiting for approval...</h2>
+            <p>The Host will review your request shortly</p>
+            <p id="waitingInfo"></p>
+            <button class="btn cancel-btn" onclick="cancelJoinRequest()">Cancel</button>
+        </div>
+
+        <!-- Meeting Screen -->
+        <div id="meetingScreen" class="meeting-screen">
+            <div class="header">
+                <div class="meeting-info">
+                    <h2 id="meetingTitle">Meeting Room</h2>
+                    <div class="meeting-code" id="codeDisplay" style="display: none;">
+                        Meeting Code: <strong id="meetingCodeText"></strong>
+                    </div>
+                </div>
+                <div class="participant-count">
+                    <div class="number" id="participantCount">1</div>
+                    <div class="label">Participants</div>
+                </div>
+            </div>
+
+            <!-- Join Requests Panel (Teacher Only) -->
+            <div id="joinRequestsPanel" class="join-requests-panel">
+                <h3>
+                    Join Requests
+                    <span class="request-badge" id="requestBadge">0</span>
+                </h3>
+                <div id="requestsList"></div>
+            </div>
+
+            <div class="main-area">
+                <div class="video-area" id="videoArea"></div>
+                
+                <div class="sidebar">
+                    <div class="card">
+                        <h3>👥 Participants</h3>
+                        <div class="participants-list" id="participantsList"></div>
+                    </div>
+
+                    <div class="card">
+                        <h3>💬 Chat</h3>
+                        <div class="chat-messages" id="chatMessages"></div>
+                        <div class="chat-input">
+                            <input type="text" id="chatInput" placeholder="Type a message...">
+                            <button onclick="sendMessage()">Send</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>🎨 Whiteboard</h3>
+                        <canvas id="whiteboard" class="whiteboard-canvas" width="300" height="200"></canvas>
+                        <div class="color-picker">
+                            <div class="color-option active" style="background: black" onclick="setColor('black')"></div>
+                            <div class="color-option" style="background: red" onclick="setColor('red')"></div>
+                            <div class="color-option" style="background: blue" onclick="setColor('blue')"></div>
+                            <div class="color-option" style="background: green" onclick="setColor('green')"></div>
+                            <button class="btn" style="margin-top: 10px; padding: 8px 15px; font-size: 12px;" onclick="clearWhiteboard()">Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Recording Section - Only visible to teachers -->
+                    <div class="card" id="recordingCard">
+                        <h3>📹 Recordings</h3>
+                        <button class="btn" id="recordBtn" onclick="toggleRecording()">Start Recording</button>
+                        <div class="recordings-list" id="recordingsList"></div>
+                    </div>
+
+                    <div class="card">
+                        <h3>🤖 AI Summary</h3>
+                        <!-- Generate button only for teachers -->
+                        <button class="btn" id="generateSummaryBtn" style="margin-bottom: 15px;">Generate Summary</button>
+                        <div class="ai-section">
+                            <strong>Summary:</strong>
+                            <div class="summary-box" id="summary">No summary available yet</div>
+                        </div>
+                        <div class="ai-section">
+                            <strong>Transcript:</strong>
+                            <div class="summary-box" id="transcript">No transcript yet</div>
+                        </div>
+                        <button class="btn" id="downloadSummaryBtn" onclick="downloadSummaryPDF()" disabled style="margin-top: 10px;">Download PDF</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="control-btn" id="videoBtn" onclick="toggleVideo()">📹 Video</button>
+                <button class="control-btn" id="audioBtn" onclick="toggleAudio()">🎤 Audio</button>
+                <button class="control-btn" id="screenBtn">🖥️ Share Screen</button>
+                <button class="control-btn danger" id="leaveBtn">📞 Leave</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        let peer;
+        let localStream;
+        let myPeerId;
+        let myName;
+        let isHost = false;
+        let connections = new Map();
+        let participants = new Map();
+        let peers = new Map(); // Track peer connections
+        let mediaRecorder;
+        let recordedChunks = [];
+        let recordings = new Map();
+        let currentTranscript = '';
+        let currentSummary = '';
+
+        // Join Request Management
+        let pendingRequests = new Map();
+        let approvedStudents = new Set();
+        let myConnection = null;
+        const REQUEST_TIMEOUT = 120000;
+
+        function selectRole(role) {
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.target.closest('.role-card').classList.add('selected');
+            
+            document.getElementById('teacherForm').classList.remove('active');
+            document.getElementById('studentForm').classList.remove('active');
+            
+            if (role === 'teacher') {
+                document.getElementById('teacherForm').classList.add('active');
+            } else {
+                document.getElementById('studentForm').classList.add('active');
+            }
+        }
+
+        async function startAsTeacher() {
+            const name = document.getElementById('teacherName').value.trim();
+            if (!name) {
+                showToast('Please enter your name', 'error');
+                return;
+            }
+            
+            myName = name;
+            isHost = true;
+            
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                
+                peer = new Peer({
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:global.stun.twilio.com:3478' }
+                        ]
+                    },
+                    debug: 2
+                });
+                
+                peer.on('open', (id) => {
+                    myPeerId = id;
+                    console.log('Teacher peer ID:', id);
+                    document.getElementById('setupScreen').classList.remove('active');
+                    document.getElementById('setupScreen').style.display = 'none';
+                    document.getElementById('meetingScreen').classList.add('active');
+                    document.getElementById('codeDisplay').style.display = 'block';
+                    document.getElementById('meetingCodeText').textContent = id;
+                    document.getElementById('meetingTitle').textContent = `${name}'s Meeting`;
+                    
+                    addVideoStream(localStream, myName, false, true);
+                    updateParticipantsList();
+                    showToast('✅ Meeting started!');
+                    
+                    // Show join requests panel and recording controls for teacher
+                    document.getElementById('joinRequestsPanel').classList.add('active');
+                    document.getElementById('recordingCard').classList.remove('hidden');
+                    document.getElementById('generateSummaryBtn').style.display = 'block';
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('Teacher peer error:', err);
+                    showToast('Connection error: ' + err.type, 'error');
+                });
+                
+                peer.on('connection', (conn) => {
+                    console.log('Incoming connection from:', conn.peer);
+                    handleStudentConnection(conn);
+                });
+                
+                peer.on('call', (call) => {
+                    console.log('Incoming call from:', call.peer);
+                    if (approvedStudents.has(call.peer)) {
+                        call.answer(localStream);
+                        call.on('stream', (remoteStream) => {
+                            const studentName = participants.get(call.peer) || 'Student';
+                            remoteStream.peerId = call.peer; // Store peer ID for removal
+                            addVideoStream(remoteStream, studentName, false, false);
+                            // Update participant list after video stream is received
+                            updateParticipantsList();
+                        });
+                    } else {
+                        console.log('Rejecting call from unapproved student:', call.peer);
+                    }
+                });
+                
+            } catch (error) {
+                showToast('Camera/microphone access denied', 'error');
+                console.error(error);
+            }
+        }
+
+        function handleStudentConnection(conn) {
+            console.log('New connection from:', conn.peer);
+            
+            let studentData = {
+                peerId: conn.peer,
+                name: null,
+                connection: conn,
+                timestamp: Date.now(),
+                timeoutId: null
+            };
+            
+            conn.on('open', () => {
+                console.log('Connection opened with:', conn.peer);
+            });
+            
+            conn.on('data', (data) => {
+                console.log('Received data:', data);
+                
+                if (data.type === 'join_request') {
+                    console.log('Join request from:', data.name);
+                    studentData.name = data.name;
+                    pendingRequests.set(conn.peer, studentData);
+                    
+                    studentData.timeoutId = setTimeout(() => {
+                        if (pendingRequests.has(conn.peer)) {
+                            denyJoinRequest(conn.peer);
+                            showToast(`⏰ ${data.name}'s request timed out`);
+                        }
+                    }, REQUEST_TIMEOUT);
+                    
+                    displayJoinRequest(conn.peer, studentData);
+                    updateRequestBadge();
+                } else if (data.type === 'chat') {
+                    displayMessage(data.sender, data.message);
+                } else if (data.type === 'whiteboard') {
+                    drawRemoteWhiteboard(data);
+                }
+            });
+            
+            connections.set(conn.peer, conn);
+        }
+
+        function displayJoinRequest(peerId, data) {
+            const list = document.getElementById('requestsList');
+            const item = document.createElement('div');
+            item.className = 'request-item';
+            item.id = `request-${peerId}`;
+            
+            const time = new Date(data.timestamp).toLocaleTimeString();
+            
+            item.innerHTML = `
+                <div class="request-info">
+                    <strong>${data.name}</strong>
+                    <div class="timestamp">${time}</div>
+                </div>
+                <div class="request-actions">
+                    <button class="accept-btn" onclick="acceptJoinRequest('${peerId}')">Accept</button>
+                    <button class="deny-btn" onclick="denyJoinRequest('${peerId}')">Deny</button>
+                </div>
+            `;
+            
+            list.appendChild(item);
+        }
+
+        window.acceptJoinRequest = function(peerId) {
+            const requestData = pendingRequests.get(peerId);
+            if (!requestData) return;
+            
+            clearTimeout(requestData.timeoutId);
+            approvedStudents.add(peerId);
+            participants.set(peerId, requestData.name);
+            
+            requestData.connection.send({
+                type: 'join_approved',
+                hostName: myName,
+                hostPeerId: myPeerId
+            });
+            
+            pendingRequests.delete(peerId);
+            document.getElementById(`request-${peerId}`)?.remove();
+            updateRequestBadge();
+            // Don't call updateParticipantsList here - wait for video stream
+            
+            showToast(`✅ ${requestData.name} approved!`);
+        };
+
+        window.denyJoinRequest = function(peerId) {
+            const requestData = pendingRequests.get(peerId);
+            if (!requestData) return;
+            
+            clearTimeout(requestData.timeoutId);
+            
+            requestData.connection.send({
+                type: 'join_denied',
+                reason: 'Request denied by host'
+            });
+            
+            requestData.connection.close();
+            pendingRequests.delete(peerId);
+            connections.delete(peerId);
+            document.getElementById(`request-${peerId}`)?.remove();
+            updateRequestBadge();
+            
+            showToast(`❌ ${requestData.name} denied`);
+        };
+
+        // NEW: Remove student function
+        window.removeStudent = function(peerId) {
+            const studentName = participants.get(peerId);
+            if (!studentName) return;
+            
+            if (!confirm(`Remove ${studentName} from the meeting?`)) {
+                return;
+            }
+            
+            // Send removal notification to student
+            const conn = connections.get(peerId);
+            if (conn) {
+                conn.send({
+                    type: 'removed',
+                    reason: 'Removed by teacher'
+                });
+                conn.close();
+            }
+            
+            // Clean up
+            connections.delete(peerId);
+            participants.delete(peerId);
+            approvedStudents.delete(peerId);
+            peers.get(peerId)?.close();
+            peers.delete(peerId);
+            
+            // Remove video element
+            const videoContainer = document.querySelector(`[data-peer-id="${peerId}"]`);
+            if (videoContainer) {
+                videoContainer.remove();
+            }
+            
+            updateParticipantsList();
+            showToast(`🚫 ${studentName} removed from meeting`);
+        };
+
+        function updateRequestBadge() {
+            const badge = document.getElementById('requestBadge');
+            const count = pendingRequests.size;
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline' : 'none';
+        }
+
+        async function joinAsStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            const hostId = document.getElementById('meetingCode').value.trim();
+            
+            if (!name || !hostId) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+            
+            myName = name;
+            isHost = false;
+            
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                
+                peer = new Peer({
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:global.stun.twilio.com:3478' }
+                        ]
+                    }
+                });
+                
+                peer.on('open', (id) => {
+                    myPeerId = id;
+                    console.log('Student peer ID:', id);
+                    
+                    // Hide recording controls for students
+                    document.getElementById('recordingCard').classList.add('hidden');
+                    document.getElementById('generateSummaryBtn').style.display = 'none';
+                    
+                    myConnection = peer.connect(hostId);
+                    
+                    myConnection.on('open', () => {
+                        console.log('Connected to host');
+                        myConnection.send({
+                            type: 'join_request',
+                            name: myName
+                        });
+                        
+                        document.getElementById('setupScreen').style.display = 'none';
+                        document.getElementById('waitingScreen').classList.add('active');
+                        document.getElementById('waitingInfo').textContent = `Requesting to join as ${name}`;
+                    });
+                    
+                    myConnection.on('data', (data) => {
+                        console.log('Received from host:', data);
+                        
+                        if (data.type === 'join_approved') {
+                            handleJoinApproved(hostId, data);
+                        } else if (data.type === 'join_denied') {
+                            handleJoinDenied(data.reason);
+                        } else if (data.type === 'removed') {
+                            handleRemoved(data.reason);
+                        } else if (data.type === 'chat') {
+                            displayMessage(data.sender, data.message);
+                        } else if (data.type === 'whiteboard') {
+                            drawRemoteWhiteboard(data);
+                        } else if (data.type === 'summary_update') {
+                            // NEW: Receive summary updates from teacher
+                            currentSummary = data.summary;
+                            currentTranscript = data.transcript;
+                            document.getElementById('summary').textContent = data.summary;
+                            document.getElementById('transcript').textContent = data.transcript;
+                            document.getElementById('downloadSummaryBtn').disabled = false;
+                        }
+                    });
+                    
+                    myConnection.on('error', (err) => {
+                        console.error('Connection error:', err);
+                        showToast('Failed to connect to host', 'error');
+                    });
+                });
+                
+                peer.on('call', (call) => {
+                    console.log('Receiving call from host');
+                    // Don't answer if we already have a call with host
+                    if (document.querySelector('[data-peer-id="' + call.peer + '"]')) {
+                        console.log('Already have connection with this peer');
+                        return;
+                    }
+                    call.answer(localStream);
+                    call.on('stream', (remoteStream) => {
+                        console.log('Received stream in incoming call');
+                        remoteStream.peerId = call.peer;
+                        addVideoStream(remoteStream, 'Teacher', false, true);
+                    });
+                });
+                
+            } catch (error) {
+                showToast('Camera/microphone access denied', 'error');
+                console.error(error);
+            }
+        }
+
+        // NEW: Handle removal by teacher
+        function handleRemoved(reason) {
+            showToast(`❌ ${reason}`, 'error');
+            setTimeout(() => {
+                if (peer) peer.destroy();
+                if (localStream) localStream.getTracks().forEach(t => t.stop());
+                location.reload();
+            }, 2000);
+        }
+
+        function handleJoinApproved(hostId, data) {
+            console.log('Join approved by host');
+            
+            document.getElementById('waitingScreen').classList.remove('active');
+            document.getElementById('meetingScreen').classList.add('active');
+            document.getElementById('meetingTitle').textContent = `${data.hostName}'s Meeting`;
+            
+            addVideoStream(localStream, myName, false, false);
+            updateParticipantsList();
+            showToast('✅ Joined meeting!');
+            
+            // Call the host to send our stream and receive theirs
+            const call = peer.call(hostId, localStream);
+            call.on('stream', (remoteStream) => {
+                console.log('Received host stream');
+                remoteStream.peerId = hostId; // Mark this as host's stream
+                addVideoStream(remoteStream, data.hostName, false, true);
+            });
+        }
+
+        function handleJoinDenied(reason) {
+            document.getElementById('waitingScreen').classList.remove('active');
+            document.getElementById('setupScreen').style.display = 'block';
+            showToast(`❌ ${reason}`, 'error');
+            
+            if (peer) peer.destroy();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+        }
+
+        function cancelJoinRequest() {
+            if (myConnection) myConnection.close();
+            if (peer) peer.destroy();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            location.reload();
+        }
+
+        function addVideoStream(stream, name, isScreen = false, isHostUser = false) {
+            const videoArea = document.getElementById('videoArea');
+            
+            // Check if video already exists for this peer to avoid duplicates
+            if (stream.peerId) {
+                const existing = document.querySelector(`[data-peer-id="${stream.peerId}"]`);
+                if (existing) {
+                    console.log('Video already exists for peer:', stream.peerId);
+                    return;
+                }
+            }
+            
+            const container = document.createElement('div');
+            container.className = 'video-container';
+            
+            // Store peer ID if available
+            if (stream.peerId) {
+                container.setAttribute('data-peer-id', stream.peerId);
+            }
+            
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.playsInline = true;
+            if (!isScreen) video.muted = (stream === localStream);
+            
+            const label = document.createElement('div');
+            label.className = 'video-label';
+            label.textContent = name;
+            if (isHostUser) {
+                label.innerHTML += '<span class="host-badge">HOST</span>';
+            }
+            
+            container.appendChild(video);
+            container.appendChild(label);
+            videoArea.appendChild(container);
+            
+            // Update participant list when new remote video is added
+            if (stream !== localStream && stream.peerId) {
+                updateParticipantsList();
+            }
+        }
+
+        function updateParticipantsList() {
+            const list = document.getElementById('participantsList');
+            list.innerHTML = '';
+            
+            // Add yourself
+            const myItem = document.createElement('div');
+            myItem.className = 'participant-item';
+            myItem.innerHTML = `
+                <span class="participant-name">${myName} (You)${isHost ? ' 👨‍🏫' : ''}</span>
+            `;
+            list.appendChild(myItem);
+            
+            // For students, add the teacher
+            if (!isHost && myConnection) {
+                const teacherItem = document.createElement('div');
+                teacherItem.className = 'participant-item';
+                teacherItem.innerHTML = `
+                    <span class="participant-name">Teacher 👨‍🏫</span>
+                `;
+                list.appendChild(teacherItem);
+            }
+            
+            // Add other participants (for teachers)
+            if (isHost) {
+                participants.forEach((name, peerId) => {
+                    const item = document.createElement('div');
+                    item.className = 'participant-item';
+                    
+                    item.innerHTML = `
+                        <span class="participant-name">${name}</span>
+                        <button class="remove-btn" onclick="removeStudent('${peerId}')">Remove</button>
+                    `;
+                    
+                    list.appendChild(item);
+                });
+            }
+            
+            // Update count
+            const totalCount = isHost ? (participants.size + 1) : 2;
+            document.getElementById('participantCount').textContent = totalCount;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            displayMessage(myName, message);
+            
+            const data = { type: 'chat', sender: myName, message: message };
+            
+            if (isHost) {
+                connections.forEach(conn => conn.send(data));
+            } else if (myConnection) {
+                myConnection.send(data);
+            }
+            
+            input.value = '';
+        }
+
+        function displayMessage(sender, message) {
+            const container = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.innerHTML = `
+                <div class="message-sender">${sender}</div>
+                <div class="message-text">${message}</div>
+                <div class="message-time">${time}</div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Whiteboard functionality
+        const canvas = document.getElementById('whiteboard');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let currentColor = 'black';
+        let lastX = 0;
+        let lastY = 0;
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            lastX = e.clientX - rect.left;
+            lastY = e.clientY - rect.top;
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            const drawData = {
+                type: 'whiteboard',
+                action: 'draw',
+                x1: lastX,
+                y1: lastY,
+                x2: x,
+                y2: y,
+                color: currentColor
+            };
+            
+            if (isHost) {
+                connections.forEach(conn => conn.send(drawData));
+            } else if (myConnection) {
+                myConnection.send(drawData);
+            }
+            
+            lastX = x;
+            lastY = y;
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function setColor(color) {
+            currentColor = color;
+            document.querySelectorAll('.color-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function clearWhiteboard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const clearData = { type: 'whiteboard', action: 'clear' };
+            
+            if (isHost) {
+                connections.forEach(conn => conn.send(clearData));
+            } else if (myConnection) {
+                myConnection.send(clearData);
+            }
+        }
+
+        function drawRemoteWhiteboard(data) {
+            if (data.action === 'clear') {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            } else if (data.action === 'draw') {
+                ctx.strokeStyle = data.color;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(data.x1, data.y1);
+                ctx.lineTo(data.x2, data.y2);
+                ctx.stroke();
+            }
+        }
+
+        function toggleVideo() {
+            const videoTrack = localStream.getVideoTracks()[0];
+            videoTrack.enabled = !videoTrack.enabled;
+            document.getElementById('videoBtn').classList.toggle('active');
+            showToast(videoTrack.enabled ? '📹 Video on' : '📹 Video off');
+        }
+
+        function toggleAudio() {
+            const audioTrack = localStream.getAudioTracks()[0];
+            audioTrack.enabled = !audioTrack.enabled;
+            document.getElementById('audioBtn').classList.toggle('active');
+            showToast(audioTrack.enabled ? '🎤 Mic on' : '🎤 Mic off');
+        }
+
+        // Recording (Teacher only)
+        function toggleRecording() {
+            if (!isHost) {
+                showToast('❌ Only teachers can record', 'error');
+                return;
+            }
+            
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        function startRecording() {
+            if (!localStream) return;
+            
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(localStream, { mimeType: 'video/webm' });
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const id = Date.now();
+                recordings.set(id, { blob, url });
+                addRecordingToList(id);
+            };
+            
+            mediaRecorder.start();
+            document.getElementById('recordBtn').textContent = '⏹️ Stop Recording';
+            document.getElementById('recordBtn').classList.add('active');
+            showToast('🔴 Recording started');
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            document.getElementById('recordBtn').textContent = 'Start Recording';
+            document.getElementById('recordBtn').classList.remove('active');
+            showToast('⏹️ Recording stopped');
+        }
+
+        function addRecordingToList(id) {
+            const list = document.getElementById('recordingsList');
+            const item = document.createElement('div');
+            item.className = 'recording-item';
+            item.innerHTML = `
+                <span>Recording ${recordings.size}</span>
+                <button onclick="downloadRecording(${id})">Download</button>
+            `;
+            list.appendChild(item);
+        }
+
+        window.downloadRecording = function(id) {
+            const recording = recordings.get(id);
+            if (!recording) return;
+            
+            const a = document.createElement('a');
+            a.href = recording.url;
+            a.download = `lecture-${id}.webm`;
+            a.click();
+            showToast('✅ Download started!');
+        };
+
+        document.getElementById('screenBtn').addEventListener('click', async () => {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                addVideoStream(screenStream, myName + "'s Screen", true, isHost);
+                showToast('✅ Screen sharing started');
+
+                screenStream.getVideoTracks()[0].onended = () => {
+                    showToast('Screen sharing stopped');
+                };
+            } catch (error) {
+                showToast('Screen sharing cancelled', 'error');
+            }
+        });
+
+        document.getElementById('leaveBtn').addEventListener('click', () => {
+            if (confirm('Leave the meeting?')) {
+                if (peer) peer.destroy();
+                if (localStream) localStream.getTracks().forEach(t => t.stop());
+                location.reload();
+            }
+        });
+
+        // AI Features (Teacher only)
+        document.getElementById('generateSummaryBtn').addEventListener('click', async () => {
+            if (!isHost) {
+                showToast('❌ Only teachers can generate summaries', 'error');
+                return;
+            }
+            
+            if (recordedChunks.length === 0) {
+                showToast('❌ Record audio first!', 'error');
+                return;
+            }
+
+            await generateAISummary();
+        });
+
+        async function generateAISummary() {
+            const summaryDiv = document.getElementById('summary');
+            const transcriptDiv = document.getElementById('transcript');
+            const downloadBtn = document.getElementById('downloadSummaryBtn');
+            
+            summaryDiv.innerHTML = '⏳ Processing...';
+            transcriptDiv.innerHTML = '⏳ Transcribing...';
+            downloadBtn.disabled = true;
+
+            try {
+                const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'recording.webm');
+                formData.append('action', 'upload');
+                
+                const uploadResponse = await fetch('http://localhost:5000/assembly-api', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const uploadResult = await uploadResponse.json();
+                
+                if (!uploadResult.success) {
+                    throw new Error(uploadResult.error || 'Upload failed');
+                }
+
+                const transcribeFormData = new FormData();
+                transcribeFormData.append('action', 'transcribe');
+                transcribeFormData.append('audio_url', uploadResult.data.upload_url);
+
+                const transcribeResponse = await fetch('http://localhost:5000/assembly-api', {
+                    method: 'POST',
+                    body: transcribeFormData
+                });
+
+                const transcribeResult = await transcribeResponse.json();
+                
+                if (!transcribeResult.success) {
+                    throw new Error(transcribeResult.error || 'Transcription failed');
+                }
+
+                const transcriptId = transcribeResult.data.transcript_id;
+
+                let attempts = 0;
+                const maxAttempts = 60;
+                
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    const statusResponse = await fetch(`http://localhost:5000/assembly-api?action=status&transcript_id=${transcriptId}`);
+                    const statusResult = await statusResponse.json();
+                    
+                    if (!statusResult.success) {
+                        throw new Error(statusResult.error || 'Status check failed');
+                    }
+
+                    if (statusResult.data.status === 'completed') {
+                        currentTranscript = statusResult.data.text || 'No transcript';
+                        currentSummary = statusResult.data.summary || 'No summary';
+                        
+                        transcriptDiv.textContent = currentTranscript;
+                        summaryDiv.textContent = currentSummary;
+                        
+                        downloadBtn.disabled = false;
+                        
+                        // NEW: Broadcast summary to all students
+                        if (isHost) {
+                            const summaryData = {
+                                type: 'summary_update',
+                                summary: currentSummary,
+                                transcript: currentTranscript
+                            };
+                            connections.forEach(conn => conn.send(summaryData));
+                        }
+                        
+                        showToast('✅ Summary generated!');
+                        return;
+                    }
+                    
+                    if (statusResult.data.status === 'error') {
+                        throw new Error('Transcription failed');
+                    }
+                    
+                    attempts++;
+                }
+                
+                throw new Error('Transcription timeout');
+
+            } catch (error) {
+                summaryDiv.textContent = 'Error generating summary';
+                transcriptDiv.textContent = 'Error';
+                downloadBtn.disabled = true;
+                showToast('❌ Failed: ' + error.message, 'error');
+                console.error('AI Summary Error:', error);
+            }
+        }
+
+        window.downloadSummaryPDF = function() {
+            if (!currentSummary || currentSummary === 'No summary') {
+                showToast('❌ No summary to download', 'error');
+                return;
+            }
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                doc.setFontSize(20);
+                doc.setFont(undefined, 'bold');
+                doc.text('Meeting Summary', 20, 20);
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                const date = new Date().toLocaleString();
+                doc.text(`Generated: ${date}`, 20, 30);
+                
+                if (isHost && myPeerId) {
+                    doc.text(`Meeting Code: ${myPeerId}`, 20, 37);
+                }
+                
+                doc.setLineWidth(0.5);
+                doc.line(20, 42, 190, 42);
+                
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('Summary:', 20, 52);
+                
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'normal');
+                
+                const summaryLines = doc.splitTextToSize(currentSummary, 170);
+                doc.text(summaryLines, 20, 62);
+                
+                const summaryHeight = summaryLines.length * 7;
+                let yPosition = 62 + summaryHeight + 10;
+                
+                if (currentTranscript && currentTranscript !== 'No transcript' && yPosition < 250) {
+                    doc.setFontSize(14);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Transcript:', 20, yPosition);
+                    
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    
+                    const transcriptLines = doc.splitTextToSize(currentTranscript, 170);
+                    
+                    if (yPosition + transcriptLines.length * 5 > 280) {
+                        doc.addPage();
+                        yPosition = 20;
+                        doc.setFontSize(14);
+                        doc.setFont(undefined, 'bold');
+                        doc.text('Transcript (continued):', 20, yPosition);
+                        yPosition += 10;
+                        doc.setFontSize(10);
+                        doc.setFont(undefined, 'normal');
+                    } else {
+                        yPosition += 10;
+                    }
+                    
+                    doc.text(transcriptLines, 20, yPosition);
+                }
+                
+                const timestamp = Date.now();
+                doc.save(`meeting-summary-${timestamp}.pdf`);
+                
+                showToast('✅ PDF downloaded!');
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                showToast('❌ Failed to generate PDF', 'error');
+            }
+        };
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            toast.style.background = type === 'error' ? '#f56565' : '#48bb78';
+            
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
